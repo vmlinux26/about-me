@@ -1,0 +1,57 @@
+#!/bin/bash 
+#
+### thanks for downloading this.  helpfully this will help alert some people to
+### the fact they have been being used to crack some people's system.
+#
+### change from mod_ssh.sh.txt to mod_ssh.sh
+### to watch this run -- bash -o xtrace mod_ssh.sh (as su or sudo)
+#
+### written for debian
+### set it up as a cron job to run after your logs rotate.
+### you might have to change where your auth.log is (or which one .0 or .1)
+#
+PATH="/usr/local/bin:/usr/bin:/bin:" 
+ 
+HOSTNAME=`dnsdomainname` 
+CURRENT=`date -R` 
+
+mkdir abuse ### we are going to do everything in a dir that we make 
+cd abuse    ### that way we can keep things nice and clean. 
+
+grep Invalid /var/log/auth.log.0 > "bad_sshd" 
+grep -Eo '([0-9]{1,3}\.){3}[0-9]{1,3}' "bad_sshd" | sort -u -o ip_sshd
+
+while VAR1=`head -n1 ip_sshd`; do  
+    if [ ! "$VAR1" ] ; then  
+    	break  ## if $VAR1 is empty go to EOF
+    else VAR2=`whois "$VAR1" | grep -i abuse | \
+	    grep -o [[:alnum:]]*\@[[:alnum:]]*\.[[:alpha:]]* | sort -u` 
+    fi
+VAR3=`grep "$VAR1" bad_sshd`
+
+mail­-s ssh\ attack "$VAR2" <<EOF 
+ 
+Thank you for taking the time and concern to address this email. 
+ 
+This email was sent to you from a cron job to notify the admin and you, the isp, 
+of attempted break ins from an ssh script coming from someone in your block of 
+ip addresses. 
+
+My timezone is ${TIMEZONE}.
+My current time is ${CURRENT}.
+Current UTC time is ${UTC}.
+
+Thank you.
+admin@$HOSTNAME
+
+${VAR3}
+EOF
+sed -i '1d' ip_sshd
+continue
+done 
+
+cd ../ 
+rm -rf abuse  ### clean everything up 
+exit 0  ### :) all done. 
+# 
+#

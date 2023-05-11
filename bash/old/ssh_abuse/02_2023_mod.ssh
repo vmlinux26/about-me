@@ -1,0 +1,70 @@
+#!/bin/bash 
+#
+### thanks for downloading this.  helpfully this will help alert some people to
+### the fact they have been being used to crack other people's system.
+#
+### change from mod_ssh.sh.txt to mod_ssh.sh
+### to watch this run --> bash -o xtrace mod_ssh.sh (as su or sudo)
+#
+### written for debian
+### things needed: whois, mail program  (tested with postfix)
+###                                     (please make sure you're not relaying)
+### set it up as a cron job to run after your logs rotate.
+### you might have to change where your auth.log is (or which one .0 or .1)
+### centos -- /var/log/secure (or secure.date_rotated)
+#
+PATH="/usr/local/bin:/usr/bin:/bin:" 
+ 
+## look at using mktemp -d to create a random directory name and then change
+## to that dir, put into a var so you can remove it at the end.
+TEMP=$(mktemp -d /tmp/XXXXX)
+cd /tmp/$TEMP
+## can you do this without even making a dir to do things in? use variables
+## instead?
+## OLD -- mkdir /tmp/SSH_Abuse ### we are going to do everything in a dir that we make 
+## OLD -- cd /tmp/SSH_Abuse    ### that way we can keep things nice and clean. 
+
+HOSTNAME=`dnsdomainname` 
+CURRENT=`date -R` 
+
+grep Invalid /var/log/auth.log.1 > "bad_sshd" 
+grep -Eo '([0-9]{1,3}\.){3}[0-9]{1,3}' "bad_sshd" | sort -u -o ip_sshd
+
+## could this be changed to an 'until' loop and test it right away?
+while VAR1=`head -n1 ip_sshd`; do  
+    if [ ! "$VAR1" ] ; then  
+	break  ## if $VAR1 is empty go to mail (should be 'go to done', not 'go
+	## to mail')
+    else VAR2=`whois "$VAR1" | grep -i abuse | \
+	    grep -o [[:alnum:]]*\@[[:alnum:]]*\.[[:alpha:]]* | sort -u` 
+    fi
+
+VAR3=`grep "$VAR1" bad_sshd`
+
+mail -s ssh\ attack "$VAR2" <<EOF
+
+Thank you for taking the time and concern to address this email.
+
+This email was sent to you from a cron job to notify the Admin and you the ISP 
+of attempted break ins from someone coming from your ip address or block of ip
+addresses.
+
+My time is "$CURRENT"
+
+Thank you.
+admin@$HOSTNAME
+
+"$VAR3"
+
+
+EOF
+sed -i '1d' ip_sshd
+continue
+done 
+
+cd ../ 
+rm -rf /tmp/$TEMP
+## OLD --> rm -rf /tmp/SSH_Abuse  ### clean everything up 
+exit 0  ### :) all done. 
+# 
+###  Copyright (C) 2005, 2009, 2016 chadbrabec@gmail.com

@@ -1,0 +1,48 @@
+#!/bin/bash
+#
+#
+# 04-09-2023
+# start writing functions
+#
+# 1st, check system type, systemd or sysinitd
+#
+# 2nd, keep old, while updating how the commands are called. instead of backticks "`", use the now
+# excepted "$(command)".
+#
+# 3rn, use the journalctl from the old script, mod_ssh.sh.systemd for another function
+#
+# 4th, will have to write these funtions first, orig and mod_..., and the call them from the test
+# system type function
+#
+# 5th, leave the email part of the original script in place, since that won't, hopefully, have to be updated
+#
+# 6th, have fun :)
+#
+# 7th, set up what file/var is written to depending on the unit used in journalctl
+#
+PATH="/usr/local/bin:/usr/bin"
+
+type_init () {
+    grep -i Illegal /var/log/auth.log.0 > "bad_sshd" # finding the offenders.
+    grep -Eo '([0-9]{1,3}\.){3}[0-9]{1,3}' "bad_sshd" | sort -u -o ip_sshd
+}
+
+type_sysd () {
+    journalctl -u sshd.service --no-pager --since -168hours --until today | grep Invalid > bad_sshd
+    if [ `cat bad_sshd | wc -l` == 0 ]; then # > Use $(...) notation instead of legacy backticks `...`. > Quote this to prevent word splitting. > Useless cat. Consider 'cmd < file | ..' or…
+        journalctl -u ssh.service --no-pager --since -168hours --until today | grep Invalid > bad_sshd
+    fi #
+}
+
+ck_sys () {
+    while VAR1=`ps ax | head | grep init`; do # > Use $(...) notation instead of legacy backticks `...`.
+        if [ "$VAR1" ]; then
+            echo "$VAR1"; break
+        else
+            exit
+        fi
+    done #
+}
+
+# grab the os check script to see what it is, different distros use ssh or sshd for their journalctl
+# and log file for bad ssh logins, or look at lsb version?
